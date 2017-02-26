@@ -11,7 +11,7 @@ CONFIG = File.join(File.dirname(__FILE__), "config.rb")
 # Defaults for config options defined in CONFIG
 $num_instances = 1
 $instance_name_prefix = "core"
-$update_channel = "alpha"
+$update_channel = "stable"
 $image_version = "current"
 $enable_serial_logging = false
 $share_home = false
@@ -21,6 +21,8 @@ $vm_cpus = 1
 $vb_cpuexecutioncap = 100
 $shared_folders = {}
 $forwarded_ports = {}
+$dc_url='https://github.com/docker/compose/releases/download/1.3.3/' +
+        'docker-compose-`uname -s`-`uname -m`'
 
 # Attempt to apply the deprecated environment variable NUM_INSTANCES to
 # $num_instances while allowing config.rb to override it
@@ -128,7 +130,7 @@ Vagrant.configure("2") do |config|
       config.vm.network :private_network, ip: ip
 
       # Uncomment below to enable NFS for sharing the host machine into the coreos-vagrant VM.
-      #config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp']
+      config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp']
       $shared_folders.each_with_index do |(host_folder, guest_folder), index|
         config.vm.synced_folder host_folder.to_s, guest_folder.to_s, id: "core-share%02d" % index, nfs: true, mount_options: ['nolock,vers=3,udp']
       end
@@ -141,6 +143,18 @@ Vagrant.configure("2") do |config|
         config.vm.provision :file, :source => "#{CLOUD_CONFIG_PATH}", :destination => "/tmp/vagrantfile-user-data"
         config.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
       end
+
+      # /etc/motd IP
+      ip_msg='"Core IP: '+ ip +'"'
+      puts ip_msg
+      config.vm.provision :shell, :inline => 'echo -e \n' + ip_msg+ '\n >> /etc/motd', :privileged => true
+
+      # Install docker compose
+      #
+
+      config.vm.provision :shell, :inline => 'mkdir -p /opt/bin', :privileged => true
+      config.vm.provision :shell, :inline => 'curl -s -L ' + $dc_url + ' > /opt/bin/docker-compose', :privileged => true
+      config.vm.provision :shell, :inline => 'chmod +x /opt/bin/docker-compose', :privileged => true
 
     end
   end
